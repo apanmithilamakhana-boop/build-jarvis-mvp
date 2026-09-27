@@ -105,7 +105,31 @@ export default function JarvisApp() {
   function stopAudio() {
     speechTokenRef.current += 1
     audioRef.current?.pause()
+    window.speechSynthesis?.cancel()
     setSpeaking(false)
+  }
+
+  // Used when ElevenLabs is unavailable so JARVIS is never silent.
+  function speakWithBrowser(text, token) {
+    const synth = window.speechSynthesis
+    if (!synth || typeof SpeechSynthesisUtterance === 'undefined') {
+      setSpeaking(false)
+      notify('VOICE SYSTEM UNAVAILABLE')
+      return
+    }
+    synth.cancel()
+    const utterance = new SpeechSynthesisUtterance(text.replace(/[*_#`>]/g, ''))
+    const voices = synth.getVoices()
+    utterance.voice =
+      voices.find((v) => /en-GB/i.test(v.lang) && /male|daniel|george|arthur/i.test(v.name)) ||
+      voices.find((v) => /en-GB/i.test(v.lang)) ||
+      voices.find((v) => /^en/i.test(v.lang)) ||
+      null
+    utterance.rate = 1.02
+    utterance.onend = utterance.onerror = () => {
+      if (token === speechTokenRef.current) setSpeaking(false)
+    }
+    synth.speak(utterance)
   }
 
   async function speak(text) {
@@ -119,13 +143,14 @@ export default function JarvisApp() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ text }),
       })
-      if (!res.ok) throw new Error('VOICE SYSTEM UNAVAILABLE')
-      blob = await res.blob()
-    } catch {
-      if (token === speechTokenRef.current) {
-        setSpeaking(false)
-        notify('VOICE SYSTEM UNAVAILABLE')
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.detail || 'VOICE SYSTEM UNAVAILABLE')
       }
+      blob = await res.blob()
+    } catch (error) {
+      console.warn('[jarvis] ElevenLabs unavailable, using browser voice:', error.message)
+      if (token === speechTokenRef.current) speakWithBrowser(text, token)
       return
     }
 
