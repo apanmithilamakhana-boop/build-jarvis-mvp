@@ -1,4 +1,5 @@
-import { chatWithOllama, checkOllama, JARVIS_SYSTEM_PROMPT } from '@/lib/ollama'
+import { checkOllama, JARVIS_SYSTEM_PROMPT } from '@/lib/ollama'
+import { generateReply, FALLBACK_MODEL } from '@/lib/brain'
 import { searchWeb, isSearchConfigured } from '@/lib/search'
 import { isVoiceConfigured } from '@/lib/elevenlabs'
 import { needsWebSearch, extractSearchQuery } from '@/lib/intent'
@@ -62,15 +63,16 @@ export async function POST(request) {
   messages.push({ role: 'user', content: message })
 
   try {
-    const reply = await chatWithOllama(messages)
+    const { reply, engine } = await generateReply(messages)
     return Response.json({
       reply,
+      engine,
       needsSearch,
       sources: needsSearch ? sources || [] : [],
       searchError,
     })
   } catch (error) {
-    console.error('[jarvis] ollama failed:', error.message)
+    console.error('[jarvis] all AI engines failed:', error.message)
     return Response.json(
       { error: 'JARVIS CORE OFFLINE', detail: error.message, needsSearch },
       { status: 503 },
@@ -84,6 +86,7 @@ export async function GET() {
   return Response.json(
     {
       ollama,
+      fallback: { model: FALLBACK_MODEL },
       search: { configured: isSearchConfigured() },
       voice: { configured: isVoiceConfigured() },
     },

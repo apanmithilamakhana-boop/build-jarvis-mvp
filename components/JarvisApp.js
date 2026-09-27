@@ -23,7 +23,11 @@ async function postJson(url, payload) {
     body: JSON.stringify(payload),
   })
   const data = await res.json().catch(() => ({}))
-  if (!res.ok) throw new Error(data.error || `Request failed (${res.status})`)
+  if (!res.ok) {
+    const error = new Error(data.error || `Request failed (${res.status})`)
+    error.detail = data.detail
+    throw error
+  }
   return data
 }
 
@@ -181,14 +185,16 @@ export default function JarvisApp() {
       try {
         data = await postJson('/api/chat', { message: text, conversation, searchResults, searchFailed })
         if (!data.reply) throw new Error('Empty reply')
-      } catch {
+      } catch (error) {
         setMessages((prev) => [
           ...prev,
           {
             id: createId(),
             role: 'system',
             content: 'JARVIS CORE OFFLINE',
-            detail: 'Could not reach Ollama. Make sure "ollama serve" is running and OLLAMA_URL / OLLAMA_MODEL are correct.',
+            detail:
+              error?.detail ||
+              'Neither local Ollama nor the cloud fallback responded. Check that "ollama serve" is running, or try again in a moment.',
           },
         ])
         notify('JARVIS CORE OFFLINE')

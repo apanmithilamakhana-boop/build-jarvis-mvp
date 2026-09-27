@@ -83,8 +83,8 @@ export function SystemInfo({ data, isLoading }) {
     <div className="flex flex-wrap gap-x-5 gap-y-2" aria-label="System status">
       <Indicator
         label="AI"
-        value={pending ? 'OLLAMA' : `OLLAMA ${ollamaOnline ? 'ONLINE' : 'OFFLINE'}${modelNote}`}
-        state={pending ? 'pending' : ollamaOnline ? 'online' : 'offline'}
+        value={pending ? 'OLLAMA' : ollamaOnline ? `OLLAMA ONLINE${modelNote}` : 'CLOUD FALLBACK'}
+        state={pending ? 'pending' : 'online'}
       />
       <Indicator
         label="VOICE"
